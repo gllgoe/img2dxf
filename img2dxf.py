@@ -202,6 +202,19 @@ def convert_image_to_dxf(
     if not input_path.exists():
         raise FileNotFoundError(f"输入文件不存在: {input_path}")
     
+    # vtracer不支持TIF格式，需要先转换为PNG
+    temp_png = None
+    if input_path.suffix.lower() in ('.tif', '.tiff'):
+        print(f"🔄 TIF格式，先转换为PNG...")
+        temp_png = str(input_path) + ".temp.png"
+        with Image.open(input_path) as img:
+            if img.mode != 'L' and img.mode != 'RGB':
+                img = img.convert('L')
+            img.save(temp_png)
+        input_path_for_vtracer = temp_png
+    else:
+        input_path_for_vtracer = str(input_path)
+    
     if output_path is None:
         output_path = input_path.with_suffix('.dxf')
     
@@ -216,7 +229,7 @@ def convert_image_to_dxf(
     svg_path = str(input_path) + ".temp.svg"
     
     vtracer.convert_image_to_svg_py(
-        image_path=str(input_path),
+        image_path=input_path_for_vtracer,
         out_path=svg_path,
         colormode=colormode,
         hierarchical="stacked",
@@ -237,6 +250,8 @@ def convert_image_to_dxf(
     print("   ✅ DXF 转换完成")
     
     os.remove(svg_path)
+    if temp_png and os.path.exists(temp_png):
+        os.remove(temp_png)
     
     size_kb = os.path.getsize(output_path) / 1024
     print(f"\n🎉 转换完成!")
